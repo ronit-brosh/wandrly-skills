@@ -14,13 +14,13 @@ These skills let Claude export trip itineraries directly into Wandrly's native f
 
 ### Claude Code
 ```bash
-npx clawhook@latest install github:YOUR_USERNAME/wandrly-skills/wandrly-export
+npx clawhook@latest install github:ronit-brosh/wandrly-skills/wandrly-export
 ```
 
 ### Manual
 ```bash
 mkdir -p ~/.claude/skills
-git clone https://github.com/YOUR_USERNAME/wandrly-skills.git /tmp/wandrly-skills
+git clone https://github.com/ronit-brosh/wandrly-skills.git /tmp/wandrly-skills
 cp -r /tmp/wandrly-skills/wandrly-export ~/.claude/skills/
 ```
 
