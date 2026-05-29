@@ -24,20 +24,6 @@ You can also ask explicitly at any point:
 
 > *"Export this to wandrly"* / *"Save as wandrly file"*
 
-## Example prompts
-
-**Plan and export in one go:**
-> *"Plan a week in Japan for two in April — Tokyo, Kyoto, Hiroshima. Mid-range budget, mix of culture and food. Export to wandrly when done."*
-
-**Export an existing conversation:**
-> *"We just planned my Lisbon trip. Create a wandrly file from it."*
-
-**Explicit export:**
-> *"Export this itinerary as a .wandrly file"*
-
-**Hebrew:**
-> *"תכנן לי 5 ימים בברצלונה בסוף מאי, זוג, תקציב בינוני. תייצא לקובץ wandrly."*
-
 ## What gets exported
 
 | Section | Contents |
@@ -61,11 +47,15 @@ npx clawhub@latest install github:YOUR_USERNAME/wandrly-skills/wandrly-export
 ### Manual
 ```bash
 mkdir -p ~/.claude/skills
-git clone https://github.com/ronit-brosh/wandrly-skills.git /tmp/wandrly-skills
-cp -r /tmp/wandrly-skills/wandrly-export ~/.claude/skills/
+git clone https://github.com/ronit-brosh/wandrly-skills.git /tmp/wandrly-skills-install
+cp -rn /tmp/wandrly-skills-install/wandrly-export ~/.claude/skills/
+rm -rf /tmp/wandrly-skills-install
 ```
+
+> Re-running is safe: `cp -rn` skips files that already exist.
 
 ## Requirements
 
 - Claude Pro, Max, Team, or Enterprise
 - Code Execution enabled in Claude settings
+
