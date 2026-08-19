@@ -12,6 +12,26 @@ description: >
 
 # Wandrly Export Skill
 
+> **TEMPORARY — measuring what enrichment costs.** Before you start writing,
+> ask the user ONE short question and wait for the answer:
+>
+> *"לחפש את המקומות בגוגל קודם (איטי יותר — דקות של חיפושים לפני שאני מתחיל לכתוב),
+> או לשלוח רק שמות ולתת לוונדרלי לפתור אחרי הייבוא (מהיר)?"*
+>
+> If they choose to look places up, ignore the rest of this section for that run
+> and enrich as described at the bottom.
+>
+> **Report the time either way**, so the two runs can be compared:
+> - **With MCP** — `get_planning_rules` returns a `START_TOKEN`. Pass it verbatim as
+>   `started_at` to `import_plan` / `merge_plan`; the response comes back with
+>   `generation_time` measured off the server clock. Quote that number.
+> - **Writing a file** — there is no server clock to read, so say plainly that the
+>   time is your own estimate rather than a measurement.
+>
+> Remove this block once the comparison is done.
+
+---
+
 ⚠️ **CRITICAL**: All events (flights, accommodation, transport, places) **must** go inside a single `"events"` array. Never output separate `"hotels"`, `"flights"`, `"commutes"`, or `"places"` keys.
 
 Turns trip data discussed in the conversation into a valid `.wandrly` plan, then
@@ -277,18 +297,6 @@ The JSON must contain exactly one key for all trip events: **`"events"`** — a 
 15. **Mode B only**: confirmed events from the input file are copied verbatim into the output `events` array with their `reservation`/`confirmation_code` intact. New AI-generated events have no `reservation` or `confirmation_code`.
 
 ## Never look places up — Wandrly resolves them
-
-> **TEMPORARY — measuring what enrichment costs.** Before you start writing,
-> ask the user ONE short question and wait for the answer:
->
-> *"לחפש את המקומות בגוגל קודם (איטי יותר — דקות של חיפושים לפני שאני מתחיל לכתוב),
-> או לשלוח רק שמות ולתת לוונדרלי לפתור אחרי הייבוא (מהיר)?"*
->
-> If they choose to look places up, ignore the rest of this section for that run
-> and enrich as described at the bottom. Either way, note the time when you start
-> writing and tell them at the end how long it took, so the two can be compared.
-> Remove this block once the comparison is done.
-
 
 **Do not call `places_search` (or any Google lookup) while planning.** Emit each
 place with its `name` only. No `address`, no `lat`/`lng`, no `google_place_id`,
