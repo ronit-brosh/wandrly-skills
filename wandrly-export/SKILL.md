@@ -22,9 +22,11 @@ description: >
 > and enrich as described at the bottom.
 >
 > **Report the time either way**, so the two runs can be compared:
-> - **With MCP** — `get_planning_rules` returns a `START_TOKEN`. Pass it verbatim as
->   `started_at` to `import_plan` / `merge_plan`; the response comes back with
->   `generation_time` measured off the server clock. Quote that number.
+> - **With MCP** — call `get_planning_rules` ONCE before you start writing, purely to
+>   get its `START_TOKEN` (you already have the format from this skill, so ignore the
+>   rest of what it returns). Pass the token verbatim as `started_at` to `import_plan`
+>   / `merge_plan`; the response comes back with `generation_time` measured off the
+>   server clock. Quote that number.
 > - **Writing a file** — there is no server clock to read, so say plainly that the
 >   time is your own estimate rather than a measurement.
 >
