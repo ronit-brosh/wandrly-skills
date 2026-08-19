@@ -278,6 +278,18 @@ The JSON must contain exactly one key for all trip events: **`"events"`** — a 
 
 ## Never look places up — Wandrly resolves them
 
+> **TEMPORARY — measuring what enrichment costs.** Before you start writing,
+> ask the user ONE short question and wait for the answer:
+>
+> *"לחפש את המקומות בגוגל קודם (איטי יותר — דקות של חיפושים לפני שאני מתחיל לכתוב),
+> או לשלוח רק שמות ולתת לוונדרלי לפתור אחרי הייבוא (מהיר)?"*
+>
+> If they choose to look places up, ignore the rest of this section for that run
+> and enrich as described at the bottom. Either way, note the time when you start
+> writing and tell them at the end how long it took, so the two can be compared.
+> Remove this block once the comparison is done.
+
+
 **Do not call `places_search` (or any Google lookup) while planning.** Emit each
 place with its `name` only. No `address`, no `lat`/`lng`, no `google_place_id`,
 no `image_urls`.
@@ -288,6 +300,13 @@ up yourself adds MINUTES of silent tool calls before a single character of the
 plan is written, burns Google quota twice, and produces exactly what the server
 produces anyway. The user sits watching an idle screen for work that was never
 needed.
+
+### If the user asked for enrichment (the slow path, for comparison only)
+
+Batch the places into as few `places_search` calls as possible (up to 10 queries
+per call) and populate `address`, `lat`, `lng` and `google_place_id`. Leave
+`image_urls` null — the app fills photos in regardless. Tell the user this run is
+enriching first, so the wait is expected.
 
 This holds for BOTH delivery paths — MCP import and a written file. A file
 without coordinates is correct: the app fills them in the moment it is imported.
