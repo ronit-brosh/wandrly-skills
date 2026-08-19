@@ -1,19 +1,23 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Wandrly Export Format",
-  "description": "Schema for .wandrly trip export files",
+  "description": "Unified events-based schema for .wandrly trip export files. Each booking is ONE event; its timeline placement lives in timeline_slots (start/overnight/end, with time/is_pinned per slot). An accommodation event carries ALL of its slots — start, one per intermediate overnight, end — in a single event; never emit a separate event per slot.",
   "type": "object",
-  "required": ["wandrly_version", "trip"],
+  "required": ["wandrly_version", "trip", "events"],
   "properties": {
     "wandrly_version": {
       "type": "integer",
-      "description": "Format version. Current: 1"
+      "description": "Format version. Current: 1. The next incompatible format will be 2, then 3, etc."
     },
-    "exported_at": {
-      "type": ["string", "null"],
-      "format": "date-time",
-      "description": "ISO 8601 UTC timestamp of export"
+    "source": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "description": "'app' | 'ai_skill' | 'web blog'" },
+        "skill_name": { "type": ["string", "null"] }
+      },
+      "required": ["type"]
     },
+    "exported_at": { "type": ["string", "null"], "format": "date-time" },
     "trip": {
       "type": "object",
       "required": ["name"],
@@ -24,172 +28,206 @@
         "end_date":    { "type": ["string", "null"], "format": "date" },
         "status":      { "type": ["string", "null"] },
         "notes":       { "type": ["string", "null"] },
-        "map_url":     { "type": ["string", "null"] }
-      }
-    },
-    "hotels": {
-      "type": "array",
-      "description": "One entry per selected hotel (overlapping options collapsed to chosen). Cancelled and dismissed hotels excluded.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "provider":             { "type": ["string", "null"] },
-          "hotel_name":           { "type": ["string", "null"] },
-          "hotel_address":        { "type": ["string", "null"] },
-          "destination":          { "type": ["string", "null"] },
-          "start_date":           { "type": ["string", "null"], "format": "date", "description": "Override value if present, else raw" },
-          "end_date":             { "type": ["string", "null"], "format": "date", "description": "Override value if present, else raw" },
-          "confirmation_code":    { "type": ["string", "null"], "description": "Original booking confirmation code (stripped on import)" },
-          "room_type":            { "type": ["string", "null"] },
-          "checkin_time_from":    { "type": ["string", "null"], "description": "HH:MM parser default" },
-          "checkin_time_to":      { "type": ["string", "null"], "description": "HH:MM parser default" },
-          "checkout_time_from":   { "type": ["string", "null"], "description": "HH:MM parser default" },
-          "checkout_time_to":     { "type": ["string", "null"], "description": "HH:MM parser default" },
-          "display_checkin_time": { "type": ["string", "null"], "description": "HH:MM user override for checkin display time" },
-          "display_checkout_time":{ "type": ["string", "null"], "description": "HH:MM user override for checkout display time" },
-          "total_price":          { "type": ["number", "null"] },
-          "currency":             { "type": ["string", "null"] },
-          "free_cancellation_until": { "type": ["string", "null"] },
-          "is_non_refundable":    { "type": ["boolean", "null"] },
-          "notes":                { "type": ["string", "null"] },
-          "lat":                  { "type": ["number", "null"] },
-          "lng":                  { "type": ["number", "null"] },
-          "image_urls":           { "type": ["array", "null"], "items": { "type": "string" } },
-          "rating":               { "type": ["number", "null"] },
-          "rating_count":         { "type": ["integer", "null"] },
-          "action":               { "type": ["string", "null"], "enum": ["booking", "modification", null] },
-          "source":               { "type": ["string", "null"] }
-        }
-      }
-    },
-    "flights": {
-      "type": "array",
-      "description": "All booking flight segments (cancellation rows excluded). One row per segment.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "reservation":      { "type": ["string", "null"], "description": "PNR — stripped on import" },
-          "airline":          { "type": ["string", "null"] },
-          "flight_number":    { "type": ["string", "null"] },
-          "from_city":        { "type": ["string", "null"] },
-          "from_airport":     { "type": ["string", "null"], "description": "IATA code" },
-          "departure":        { "type": ["string", "null"], "format": "date-time", "description": "Local time, no timezone" },
-          "to_city":          { "type": ["string", "null"] },
-          "to_airport":       { "type": ["string", "null"], "description": "IATA code" },
-          "arrival":          { "type": ["string", "null"], "format": "date-time", "description": "Local time, no timezone" },
-          "class_of_service": { "type": ["string", "null"] },
-          "seat":             { "type": ["string", "null"] },
-          "eticket":          { "type": ["string", "null"], "description": "Stripped on import" },
-          "cost":             { "type": ["number", "null"], "description": "Only on first segment of each PNR" },
-          "currency":         { "type": ["string", "null"] },
-          "action":           { "type": ["string", "null"] },
-          "source":           { "type": ["string", "null"] },
-          "notes":            { "type": ["string", "null"] },
-          "bag_carry_on_kg":  { "type": ["number", "null"] },
-          "bag_checked_kg":   { "type": ["number", "null"] }
-        }
-      }
-    },
-    "commutes": {
-      "type": "array",
-      "description": "Car rentals and transfers (cancellation rows excluded). Override values merged in.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "company":              { "type": ["string", "null"] },
-          "category":             { "type": ["string", "null"] },
-          "vehicle_type":         { "type": ["string", "null"] },
-          "confirmation_code":    { "type": ["string", "null"], "description": "Original code — stripped on import" },
-          "departure_datetime":   { "type": ["string", "null"], "format": "date-time", "description": "Override value if present, else raw. No timezone." },
-          "departure_address":    { "type": ["string", "null"], "description": "Override value if present, else raw" },
-          "arrival_datetime":     { "type": ["string", "null"], "format": "date-time", "description": "Override value if present, else raw. No timezone." },
-          "arrival_address":      { "type": ["string", "null"], "description": "Override value if present, else raw" },
-          "free_cancellation_deadline": { "type": ["string", "null"] },
-          "cost":                 { "type": ["number", "null"] },
-          "currency":             { "type": ["string", "null"] },
-          "booking_url":          { "type": ["string", "null"] },
-          "action":               { "type": ["string", "null"] },
-          "source":               { "type": ["string", "null"] },
-          "departure_lat":        { "type": ["number", "null"] },
-          "departure_lng":        { "type": ["number", "null"] },
-          "arrival_lat":          { "type": ["number", "null"] },
-          "arrival_lng":          { "type": ["number", "null"] }
-        }
-      }
-    },
-    "places": {
-      "type": "array",
-      "description": "User places (attractions, restaurants, etc.) with visit scheduling.",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name":             { "type": ["string", "null"] },
-          "type":             { "type": ["string", "null"], "description": "e.g. attraction, restaurant, museum" },
-          "address":          { "type": ["string", "null"] },
-          "url":              { "type": ["string", "null"] },
-          "lat":              { "type": ["number", "null"] },
-          "lng":              { "type": ["number", "null"] },
-          "area":             { "type": ["string", "null"] },
-          "duration_minutes": { "type": ["integer", "null"] },
-          "opening_hours":    { "type": ["string", "null"] },
-          "image_urls":       { "type": ["array", "null"], "items": { "type": "string" } },
-          "rating":           { "type": ["number", "null"] },
-          "rating_count":     { "type": ["integer", "null"] },
-          "notes":            { "type": ["string", "null"] },
-          "priority":         { "type": ["string", "null"], "enum": ["preferred", "optional", null] },
-          "status":           { "type": ["string", "null"], "enum": ["planned", "visited", "skipped", null] },
-          "visit_date":       { "type": ["string", "null"], "format": "date" },
-          "visit_time":       { "type": ["string", "null"], "description": "HH:MM — null if not pinned" },
-          "cost_estimate":    { "type": ["number", "null"] },
-          "currency":         { "type": ["string", "null"] },
-          "sort_order":       { "type": ["integer", "null"] },
-          "is_pinned":        { "type": ["boolean", "null"] }
-        }
-      }
-    },
-    "timeline_order": {
-      "type": "array",
-      "description": "Explicit per-day sort positions for timeline events. Preserves user-arranged order across import.",
-      "items": {
-        "type": "object",
-        "required": ["date", "event_type", "sort_order", "ref"],
-        "properties": {
-          "date":       { "type": "string", "format": "date" },
-          "event_type": {
-            "type": "string",
-            "enum": ["place", "hotel_checkin", "hotel_checkout", "commute_pickup", "commute_dropoff", "airport_checkin", "flight"]
-          },
-          "sort_order": { "type": "integer" },
-          "ref": {
-            "type": "string",
-            "description": "Portable identifier. For places: place name. For hotels/commutes: original confirmation_code (remapped to new ID on import)."
-          }
-        }
-      }
-    },
-    "expenses": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "item_name":    { "type": ["string", "null"] },
-          "category":     { "type": ["string", "null"] },
-          "amount":       { "type": ["number", "null"] },
-          "currency":     { "type": ["string", "null"] },
-          "expense_date": { "type": ["string", "null"], "format": "date" },
-          "payer_name":   { "type": ["string", "null"] }
-        }
+        "map_url":     { "type": ["string", "null"] },
+        "ai_tips":     { "type": ["array", "null"], "items": { "type": "string" }, "description": "General AI tips for the trip" }
       }
     },
     "tasks": {
       "type": "array",
+      "description": "Trip tasks / to-dos.",
       "items": {
         "type": "object",
+        "required": ["title", "is_done"],
         "properties": {
           "title":    { "type": "string" },
           "due_date": { "type": ["string", "null"], "format": "date" },
           "is_done":  { "type": "boolean" }
         }
+      }
+    },
+    "passengers": {
+      "type": "array",
+      "description": "Trip participants.",
+      "items": {
+        "type": "object",
+        "required": ["first_name", "last_name"],
+        "properties": {
+          "first_name":    { "type": "string" },
+          "last_name":     { "type": "string" },
+          "date_of_birth": { "type": ["string", "null"], "format": "date" },
+          "role":          { "type": ["string", "null"], "description": "e.g. organizer, traveler, child" },
+          "notes":         { "type": ["string", "null"] }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "description": "All trip events in a unified array. Sort by date + sort_order for timeline.",
+      "items": {
+        "type": "object",
+        "required": ["record_type", "date", "sort_order", "data"],
+        "properties": {
+          "record_type": {
+            "type": "string",
+            "enum": ["flight", "hotel", "transport", "place", "expense"]
+          },
+          "date": {
+            "type": ["string", "null"],
+            "format": "date",
+            "description": "Anchor date for timeline. Hotels: checkin_date. Flights: departure date. Tasks: due_date (null = floats to top)."
+          },
+          "sort_order": {
+            "type": "integer",
+            "description": "Position within the day."
+          },
+          "timeline_slots": {
+            "type": "array",
+            "description": "All timeline placements of this event. Accommodation: start + one 'overnight' per intermediate night + end, all on this ONE event. Flights/places: a single start slot. Transport: start (pickup) and end (dropoff) slots.",
+            "items": {
+              "type": "object",
+              "required": ["slot", "date", "sort_order"],
+              "properties": {
+                "slot":       { "type": "string", "enum": ["start", "end", "overnight", "checkin", "checkout"], "description": "start/end; 'overnight' for accommodation intermediate nights. checkin/checkout are legacy aliases accepted on import." },
+                "date":       { "type": ["string", "null"], "format": "date" },
+                "time":       { "type": ["string", "null"], "description": "HH:MM. null = magnet (time computed from chain)." },
+                "sort_order": { "type": "integer" },
+                "is_pinned":  { "type": "boolean", "description": "AI must not change this event's position." },
+                "is_magnet":  { "type": "boolean", "description": "Time is computed dynamically, not fixed." },
+                "duration_minutes": { "type": ["number", "null"] },
+                "address":    { "type": ["string", "null"], "description": "For transport: pickup/dropoff address on this slot." },
+                "lat":        { "type": ["number", "null"] },
+                "lng":        { "type": ["number", "null"] }
+              }
+            }
+          },
+          "data": { "type": "object" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "flight_data": {
+      "title": "Flight",
+      "type": "object",
+      "properties": {
+        "airline":          { "type": ["string", "null"] },
+        "flight_number":    { "type": ["string", "null"] },
+        "from_airport":     { "type": ["string", "null"] },
+        "from_city":        { "type": ["string", "null"] },
+        "departure":        { "type": ["string", "null"], "format": "date-time" },
+        "to_airport":       { "type": ["string", "null"] },
+        "to_city":          { "type": ["string", "null"] },
+        "arrival":          { "type": ["string", "null"], "format": "date-time" },
+        "seat":             { "type": ["string", "null"] },
+        "class_of_service": { "type": ["string", "null"] },
+        "cost":             { "type": ["number", "null"] },
+        "currency":         { "type": ["string", "null"] },
+        "bag_carry_on_kg":  { "type": ["number", "null"] },
+        "bag_checked_kg":   { "type": ["number", "null"] },
+        "notes":            { "type": ["string", "null"] },
+        "source":           { "type": ["string", "null"] },
+        "reservation":      { "type": ["string", "null"], "description": "Stripped on import" },
+        "eticket":          { "type": ["string", "null"], "description": "Stripped on import" },
+        "gate":             { "type": ["string", "null"] },
+        "terminal":         { "type": ["string", "null"] },
+        "boarding_time":    { "type": ["string", "null"], "format": "date-time" },
+        "checkin_hours":    { "type": ["integer", "null"], "description": "Check-in opens N hours before departure" },
+        "checkin_close_minutes": { "type": ["integer", "null"], "description": "Check-in closes N minutes before departure" }
+      }
+    },
+    "hotel_data": {
+      "title": "Hotel",
+      "type": "object",
+      "required": ["hotel_name"],
+      "description": "Dates and times are in timeline_slots (start/end). Do NOT repeat checkin_date, checkout_date, checkin_time, checkout_time here.",
+      "properties": {
+        "hotel_name":        { "type": "string" },
+        "hotel_address":     { "type": ["string", "null"] },
+        "destination":       { "type": ["string", "null"] },
+        "provider":          { "type": ["string", "null"] },
+        "total_price":       { "type": ["number", "null"] },
+        "currency":          { "type": ["string", "null"] },
+        "is_non_refundable": { "type": ["boolean", "null"] },
+        "room_type":         { "type": ["string", "null"] },
+        "notes":             { "type": ["string", "null"] },
+        "lat":               { "type": ["number", "null"] },
+        "lng":               { "type": ["number", "null"] },
+        "image_urls":        { "type": ["array", "null"], "items": { "type": "string" } },
+        "rating":            { "type": ["number", "null"] },
+        "rating_count":      { "type": ["integer", "null"] },
+        "source":            { "type": ["string", "null"] },
+        "confirmation_code": { "type": ["string", "null"], "description": "Stripped on import" }
+      }
+    },
+    "transport_data": {
+      "title": "Transport",
+      "type": "object",
+      "required": ["category"],
+      "description": "Datetimes, addresses and coords are in timeline_slots (start/end). Do NOT put departure_datetime, arrival_datetime, departure_address, departure_lat/lng, arrival_address, arrival_lat/lng here.",
+      "properties": {
+        "company":           { "type": ["string", "null"] },
+        "category":          { "type": "string", "enum": ["car", "car_rental", "taxi", "bus", "train", "ferry", "other"] },
+        "vehicle_type":      { "type": ["string", "null"] },
+        "cost":              { "type": ["number", "null"] },
+        "currency":          { "type": ["string", "null"] },
+        "notes":             { "type": ["string", "null"] },
+        "source":            { "type": ["string", "null"] },
+        "confirmation_code": { "type": ["string", "null"], "description": "Stripped on import" },
+        "provider_confirmation": { "type": ["string", "null"], "description": "Supplier's own confirmation ref; preserved only on owner restore" }
+      }
+    },
+    "place_data": {
+      "title": "Place",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name":             { "type": "string" },
+        "type":             { "type": ["string", "null"] },
+        "address":          { "type": ["string", "null"] },
+        "url":              { "type": ["string", "null"] },
+        "lat":              { "type": ["number", "null"] },
+        "lng":              { "type": ["number", "null"] },
+        "area":             { "type": ["string", "null"] },
+        "duration_minutes": { "type": ["integer", "null"] },
+        "opening_hours":    { "type": ["string", "null"] },
+        "priority":         { "type": ["string", "null"] },
+        "status":           { "type": ["string", "null"] },
+        "visit_time":       { "type": ["string", "null"] },
+        "is_pinned":        { "type": "boolean" },
+        "cost_estimate":    { "type": ["number", "null"] },
+        "currency":         { "type": ["string", "null"] },
+        "notes":            { "type": ["string", "null"] },
+        "image_urls":       { "type": ["array", "null"], "items": { "type": "string" } },
+        "rating":           { "type": ["number", "null"] },
+        "rating_count":     { "type": ["integer", "null"] }
+      }
+    },
+    "expense_data": {
+      "title": "Expense",
+      "type": "object",
+      "required": ["item_name", "amount", "currency"],
+      "properties": {
+        "item_name":      { "type": "string" },
+        "category":       { "type": ["string", "null"] },
+        "amount":         { "type": "number" },
+        "currency":       { "type": "string" },
+        "date":           { "type": ["string", "null"], "format": "date" },
+        "expense_time":   { "type": ["string", "null"], "description": "HH:MM" },
+        "payer_name":     { "type": ["string", "null"] },
+        "payment_method": { "type": ["string", "null"], "enum": ["cash", "credit", null] },
+        "is_settled":     { "type": ["boolean", "null"] },
+        "split_with":     { "type": ["array", "null"], "items": { "type": "string" }, "description": "Passenger first names — remapped to passenger IDs on import" },
+        "notes":          { "type": ["string", "null"] }
+      }
+    },
+    "task_data": {
+      "title": "Task",
+      "type": "object",
+      "required": ["title", "is_done"],
+      "properties": {
+        "title":    { "type": "string" },
+        "due_date": { "type": ["string", "null"], "format": "date" },
+        "is_done":  { "type": "boolean" }
       }
     }
   }
