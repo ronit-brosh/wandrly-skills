@@ -301,8 +301,9 @@ The JSON must contain exactly one key for all trip events: **`"events"`** — a 
 ## Never look places up — Wandrly resolves them
 
 **Do not call `places_search` (or any Google lookup) while planning.** Emit each
-place with its `name` only. No `address`, no `lat`/`lng`, no `google_place_id`,
-no `image_urls`.
+place with its `name` only, and each accommodation with its `hotel_name` and
+whatever `hotel_address` you already have from a booking. No `lat`/`lng`, no
+`google_place_id`, no `image_urls` — for places OR hotels.
 
 Wandrly resolves all of it itself — `_enrich_places_from_google` fills in coords,
 address, rating and photos on the first trip load, within seconds. Looking them
@@ -313,9 +314,10 @@ needed.
 
 ### If the user asked for enrichment (the slow path, for comparison only)
 
-Batch the places into as few `places_search` calls as possible (up to 10 queries
-per call) and populate `address`, `lat`, `lng` and `google_place_id`. Leave
-`image_urls` null — the app fills photos in regardless. Tell the user this run is
+Batch into as few `places_search` calls as possible (up to 10 queries per call)
+and populate `address`, `lat`, `lng` and `google_place_id`. **This covers hotels
+as well as places** — an accommodation with an address but no coordinates has no
+map pin either. Leave `image_urls` null — the app fills photos in regardless. Tell the user this run is
 enriching first, so the wait is expected.
 
 This holds for BOTH delivery paths — MCP import and a written file. A file
