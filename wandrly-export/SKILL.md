@@ -338,7 +338,6 @@ The file is a single JSON object. Follow this example exactly — field names, n
     "destination": "City / Region",
     "start_date": "YYYY-MM-DD",
     "end_date": "YYYY-MM-DD",
-    "status": "draft",
     "notes": null,
     "ai_tips": [
       "Practical general tip about the destination (transport, culture, money, weather, etc.)",
