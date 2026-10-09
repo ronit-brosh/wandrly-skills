@@ -286,11 +286,15 @@ Pick the route by what is available. Both reach the same result; never use
 **Route 1 — Wandrly MCP tools are available** (preferred for reordering):
 1. For each day being reordered, call `get_day_timeline(trip_id, date)` — it
    returns every row with a `tlo_id`, label and whether it is confirmed.
-2. Call `reorder_day(trip_id, date, order)` with the COMPLETE list of that
-   day's movable `tlo_id`s in the approved order. If it returns an error, read
+2. Call `reorder_day(trip_id, date, order, labels)` with the COMPLETE list of
+   that day's movable `tlo_id`s in the approved order, and each row's `label`
+   (copied exactly from `get_day_timeline`) in the same order — the labels are
+   what the user sees when approving the call. If it returns an error, read
    the reason (e.g. something crossed a flight), fix the order, and retry —
    do not work around it.
-3. For a time change, call `set_event_time(trip_id, tlo_id, time)`. If the
+3. For a time change, call `set_event_time(trip_id, tlo_id, event, current_time, time)`
+   — `event` is the row's `label` and `current_time` its current fixed time
+   (null if none), both shown to the user in the approval dialog. If the
    event is locked, the first call changes nothing and returns
    `needs_confirmation` with a `confirmation_token`. Ask the user explicitly,
    naming the event and both times — *"האירוע X נעול ל-09:30. להזיז ל-11:00?"* —
