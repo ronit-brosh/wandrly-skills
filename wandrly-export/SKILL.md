@@ -3,11 +3,13 @@ name: wandrly-export
 description: >
   ALWAYS use this skill when the user asks to plan a trip, itinerary, or travel schedule —
   even if they don't mention wandrly or export. Also use when the user provides a .wandrly
-  file and wants to add planning on top of existing bookings. At the end of every trip
-  planning response, append one line offering to deliver it — adding it straight to the
-  user's Wandrly account when the Wandrly MCP tools are available, otherwise a .wandrly
-  file. Use this skill also when the user explicitly asks to export, save, download, or
-  import a trip.
+  file and wants to add planning on top of existing bookings. Also use when the user asks
+  to review, check, analyze, or audit a day, date range, or an entire trip that already
+  exists in their Wandrly account for problems (impossible timings, opening-hours
+  conflicts, unrealistic pacing) — see Mode C. At the end of every trip planning response,
+  append one line offering to deliver it — adding it straight to the user's Wandrly
+  account when the Wandrly MCP tools are available, otherwise a .wandrly file. Use this
+  skill also when the user explicitly asks to export, save, download, or import a trip.
 ---
 
 # Wandrly Export Skill
@@ -172,6 +174,153 @@ Then deliver it per **Delivery** below. Merging is the whole point of Mode B, so
 - **Without MCP tools** — write the file and tell the user: *"Import with the Merge
   button in the app — it will add the new places/hotels without touching your
   existing bookings."*
+
+---
+
+## Mode C — Analyze & revise an existing trip
+
+Use this mode when the user asks to **review, check, analyze, audit, or find
+problems in** a day, a date range, or an entire trip that already exists in
+their Wandrly account — as opposed to planning new content (Mode A) or filling
+gaps in an uploaded file (Mode B). Examples: "תבדקי לי את היום השלישי בטיול,
+משהו לא הגיוני שם", "does the Zion Canyon plan actually work timing-wise?",
+"check the whole trip for pacing problems."
+
+This mode never invents new destinations or places — it only re-times,
+reorders, or flags problems with content that is already in the trip. If the
+fix genuinely requires something new (e.g. no hotel exists for a gap night),
+say so and offer to switch into Mode B instead of quietly inventing it here.
+
+**This is a real-world feasibility read, not a structural check.** The
+`timeline-integrity` skill (`validate_timeline_trip` / R1–R41) checks TLO
+structural invariants (sort-order consistency, pinning rules) — it has no idea
+whether a hike ends after sunset or a park opens after the planned arrival.
+Do not invoke it here and do not treat a clean integrity check as proof the
+plan is feasible; conversely, do not run this analysis in place of that skill
+if the user is actually asking about TLO integrity.
+
+### Step C-1 — Scope and fetch
+
+If the user didn't say which trip, use `list_trips` to confirm which one.
+Determine the requested scope (single day / date range / whole trip).
+
+Call `get_trip_plan` for the full skeleton — **never `get_trip_summary`** for
+this: it only returns day/night-boundary facts (destinations, night counts),
+with no per-event times, so it cannot tell you whether a hike fits before
+sunset. `get_trip_plan`'s `timeline_slots` carry real times, `duration_minutes`
+and `is_pinned` per event — that's what pacing analysis needs.
+
+Identify **confirmed anchors** exactly as in Mode B: any event whose `data` has
+a `reservation` or `confirmation_code` is a real booking. Its booking details
+(dates, price, code, booked times) are never changed and it is never dropped.
+What you MAY propose for a confirmed hotel or transport booking is **where its
+card sits within its own day** — e.g. a hotel check-in stranded after the
+first stop of the day belongs at the end. Never move it to another day.
+
+- **Flights never move** — not their time, not their position, and nothing
+  may be moved across them. Treat each flight (with its airport check-in) as a
+  wall: you can reorder what is before it and what is after it, separately.
+- **Locked times** (`is_pinned: true` with a `time`) may be real commitments —
+  a tour slot, a restaurant table. Propose changing one only when the plan
+  truly needs it, flag it explicitly in Step C-3, and change it only if the
+  user approves THAT event by name in Step C-4.
+
+Use confirmed events as reference points the rest of the day is checked
+against (e.g. "this flight is fixed at 14:00, so the museum visit before it
+needs to end by 12:30, not 13:15 as currently planned").
+
+### Step C-2 — Analyze
+
+Reason over the fetched slots for the requested scope:
+- Per-slot times vs. `duration_minutes` vs. the gap to the next event (transit
+  time, opening hours if known, whether the sequence is even physically
+  possible).
+- Pacing against the traveler profile from the conversation, if known.
+- Long drives without a stop (same "Long drives" principle as Mode A above).
+- Anything the user specifically flagged as suspicious.
+- **Events/notes the user mentioned are no longer relevant** (a booking or
+  activity they've dropped, changed their mind about, or superseded another
+  way) but didn't say what to do with — don't just leave them sitting in the
+  comparison unaddressed, and don't guess (remove? replace? keep but re-time?).
+  This is exactly the kind of missing information Step C-2's question gate
+  exists for — ask.
+
+If information needed to judge feasibility is genuinely missing (real opening
+hours, whether the user prefers to cut an activity vs. push the day later,
+what to do with something they flagged as outdated, etc.), **ask exactly
+those questions**, batched into one message, before proceeding:
+- In Hebrew: *"לפני שאני מציעה חלופה — [השאלות הספציפיות]"*
+- In English: *"Before I propose an alternative — [the specific questions]"*
+
+**Wait for explicit answers before proceeding to Step C-3.** If nothing is
+actually wrong for the requested scope, say so plainly and stop here — do not
+manufacture a revision just to have something to show.
+
+### Step C-3 — Build the side-by-side Artifact
+
+Load the `artifact-design` skill before writing it.
+
+Build one HTML Artifact for the analyzed scope: a clear **current vs.
+proposed** layout (a table or timeline-style comparison, one column/side per
+version), with each specific problem flagged inline (❌ or ⚠️ with a short
+reason) — the same shape as a planned-vs-actual review table. Confirmed/pinned
+events must be visually marked as fixed in both columns (matching Mode B's
+`[CONFIRMED — cannot be moved]` convention) — never depict them as movable.
+Match the conversation's language for content, and set RTL/`dir` accordingly
+for Hebrew.
+
+Publish it, then in the chat message summarize the key changes in 3–5 bullets
+and ask explicitly for approval — do not apply anything yet:
+- In Hebrew: *"רוצה שאעדכן את זה בפועל, או שנתאים עוד לפני?"*
+- In English: *"Want me to actually apply this, or adjust it further first?"*
+
+**Wait for explicit confirmation before proceeding to Step C-4.** If the user
+asks for changes, revise and republish the same Artifact (redeploy to the same
+path/URL) rather than starting a new one.
+
+### Step C-4 — Apply only after explicit approval
+
+Pick the route by what is available. Both reach the same result; never use
+`import_plan` here (it would trip the trip-overlap check or duplicate the trip).
+
+**Route 1 — Wandrly MCP tools are available** (preferred for reordering):
+1. For each day being reordered, call `get_day_timeline(trip_id, date)` — it
+   returns every row with a `tlo_id`, label and whether it is confirmed.
+2. Call `reorder_day(trip_id, date, order)` with the COMPLETE list of that
+   day's movable `tlo_id`s in the approved order. If it returns an error, read
+   the reason (e.g. something crossed a flight), fix the order, and retry —
+   do not work around it.
+3. For a time change, call `set_event_time(trip_id, tlo_id, time)`. If the
+   event is locked, the first call changes nothing and returns
+   `needs_confirmation` with a `confirmation_token`. Ask the user explicitly,
+   naming the event and both times — *"האירוע X נעול ל-09:30. להזיז ל-11:00?"* —
+   and call again with the token ONLY if they say yes. Never pass a token the
+   user did not approve.
+4. Use `merge_plan` only to ADD items that do not exist yet.
+
+**Route 2 — no MCP tools (e.g. Gemini, or the user wants a file)**: write a
+merge file covering only the analyzed scope:
+1. **Confirmed events** — copied verbatim, `reservation`/`confirmation_code`
+   intact. To move a confirmed card within its day, give its slot the new
+   `sort_order` on the SAME date. Keep flights exactly as they are.
+2. **The revised order and times** for the non-confirmed events, with
+   `sort_order`s consistent across the whole day (confirmed and new together).
+3. A locked time is changed in the file only if the user approved it in chat.
+
+Tell the user: *"בייבוא עם 'מיזוג לטיול' האפליקציה תציג מה זז, ושעות נעולות
+ישתנו רק אם תסמני אותן"* (English: *"When you merge it, the app shows what
+moves, and locked times change only if you tick them."*). Moves to another
+day and anything crossing a flight are listed there as not applied.
+
+Follow the same "say what you're doing before you start" guidance and
+chunk-by-leg approach already described under **Delivery** below for long
+spans — don't restate it, just follow it.
+
+Report exactly what changed (which events were retimed/reordered) and restate
+that booking details were not changed.
+
+If the user declines or asks for further adjustment instead of approving,
+return to Step C-2/C-3 with their feedback — do not call `merge_plan`.
 
 ---
 
