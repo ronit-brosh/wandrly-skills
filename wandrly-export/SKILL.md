@@ -300,7 +300,12 @@ Pick the route by what is available. Both reach the same result; never use
    naming the event and both times — *"האירוע X נעול ל-09:30. להזיז ל-11:00?"* —
    and call again with the token ONLY if they say yes. Never pass a token the
    user did not approve.
-4. Use `merge_plan` only to ADD items that do not exist yet.
+4. To drop a place from a day (the user asked to), call
+   `remove_place_visit(trip_id, tlo_id, event, date)`. It only takes that visit
+   off the timeline — the place stays in the trip, unscheduled. A locked visit
+   returns `needs_confirmation`: ask the user, then call again with the token.
+   Bookings cannot be removed this way; tell the user to cancel those in Wandrly.
+5. Use `merge_plan` only to ADD items that do not exist yet.
 
 **Route 2 — no MCP tools (e.g. Gemini, or the user wants a file)**: write a
 merge file covering only the analyzed scope:
